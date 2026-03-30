@@ -1018,7 +1018,7 @@ function handleCameraData(cameraData) {
     function m03_autoWindowOpen() {
       document.getElementById('m03Status').textContent = 'Will call window.open in 2s with no user gesture...';
       setTimeout(function() {
-        var w = window.open('https://mohsin-khan-phonepe.github.io/phonepe-test-site', '_blank');
+        var w = window.open('https://www.reddit.com', '_blank');
         document.getElementById('m03Status').textContent = w
           ? '⚠️ CONFIRMED: Auto window.open ALLOWED — new WebView opened without user interaction.'
           : 'Auto window.open BLOCKED ✅ (javaScriptCanOpenWindowsAutomatically may be false).';
