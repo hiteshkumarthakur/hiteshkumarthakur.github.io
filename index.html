@@ -93,6 +93,7 @@
   </iframe>
 </div>
 
+
 <div class="settings-section" style="border-color:orange;">
   <h3 style="color:orange;">H-07: WebRTC Capture Type Ignored</h3>
   <p>Request audio-only first. Then immediately request video.
@@ -104,6 +105,16 @@
 </div>
 
 <script>
+
+  (function() {
+  var params = new URLSearchParams(window.location.search);
+  var target = params.get('redirect');
+  if (target) {
+    window.location.href = target;
+  }
+})();
+
+
   function testH07_audioOnly() {
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => {
